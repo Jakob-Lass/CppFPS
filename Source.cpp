@@ -33,6 +33,19 @@ char cWallShade(float fDepth, float fDistanceToWall)
     return returnChar;
 }
 
+char cFloorShade(int y, int nScreenHeight)
+{
+    float b = 1.0f  - (((float)y - (float)nScreenHeight/2.0f ) / ((float)nScreenHeight/2.0f));
+
+    char returnChar = ' ';
+    if      (b <=0.25){           returnChar = '#';}//0x2588;} // Very close
+    else if (b < 0.50){           returnChar = 'x';}//0x2593;} 
+    else if (b < 0.75){           returnChar = '.';}//0x2592;} 
+    else if (b < 0.90){           returnChar = '-';}//0x2592;} 
+    
+    return returnChar;
+}
+
 
 float fRotationSpeed = 0.5f; // Speed with which the player can rotate
 float fWalkSpeed = 5.0f;
@@ -153,7 +166,7 @@ int main()
                     else
                     {
                         {
-                            screen[y*nScreenWidth+x] = cFloor;
+                            screen[y*nScreenWidth+x] = cFloorShade(y, nScreenHeight);
                         }
                     }
                     
