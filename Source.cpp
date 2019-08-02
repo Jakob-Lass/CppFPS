@@ -1,14 +1,15 @@
 #include <iostream>
 #include <math.h>
+#include <chrono>
 using namespace std;
-
+#include <tchar.h>
 
 #include <Windows.h>
 
 int nScreenWidth = 120;
 int nScreenHeight = 40;
 
-float fPlayerX = 8.0f;
+float fPlayerX = 10.0f;
 float fPlayerY = 8.0f;
 float fPlayerA = 0.0f;
 
@@ -19,11 +20,27 @@ int nMapHeight = 16;
 int nMapWidth = 16;
 
 char cCeiling = ' ';
-char cWall = '#';
+
 char cFloor = '.';
+
+char cWallShade(float fDepth, float fDistanceToWall)
+{
+    char returnChar = ' ';
+    if      (fDistanceToWall <=fDepth/4.0){           returnChar = (char)0x2588;}//0x2588;} // Very close
+    else if (fDistanceToWall < fDepth/3.0){           returnChar = (char)0x2593;}//0x2593;} 
+    else if (fDistanceToWall < fDepth/2.0){           returnChar = (char)0x2592;}//0x2592;} 
+    else if (fDistanceToWall < fDepth/1.0){           returnChar = (char)0x2591;}//0x2591;} // Very far
+    return returnChar;
+}
+
+
+float fRotationSpeed = 0.5f; // Speed with which the player can rotate
+float fWalkSpeed = 5.0f;
+
 
 int main()
 {
+    
     char *screen  = new char[nScreenWidth*nScreenHeight];
     HANDLE hConsole = CreateConsoleScreenBuffer(GENERIC_READ | GENERIC_WRITE, 0, NULL, CONSOLE_TEXTMODE_BUFFER, NULL);
     SetConsoleActiveScreenBuffer(hConsole);
@@ -51,19 +68,40 @@ int main()
     map += L"#..............#";
     map += L"################";
     
+    auto tp1 = chrono::system_clock::now();
+    auto tp2 = chrono::system_clock::now();
 
+    chrono::duration<float> elapsedTime;
+    float fElapsedTime = 0.0f;
     while(1) // game loop
     {
+        // calculate game loop duration
+        tp2 = chrono::system_clock::now();
+        elapsedTime = tp2-tp1;
+        tp1 = tp2;
+        fElapsedTime = elapsedTime.count();
+
+
         // add controls
         // Handle rotation
 
         if (GetAsyncKeyState((unsigned short)'A') && 0x8000)
         {
-            fPlayerA -= (0.1f);
+            fPlayerA -= fRotationSpeed * fElapsedTime;
         }
         if (GetAsyncKeyState((unsigned short)'D') && 0x8000)
         {
-            fPlayerA += (0.1f);
+            fPlayerA += fRotationSpeed * fElapsedTime;
+        }
+        if (GetAsyncKeyState((unsigned short)'W') && 0x8000)
+        {
+            fPlayerX += sinf(fPlayerA)* fWalkSpeed * fElapsedTime;
+            fPlayerY += cosf(fPlayerA)* fWalkSpeed * fElapsedTime;
+        }
+        if (GetAsyncKeyState((unsigned short)'S') && 0x8000)
+        {
+            fPlayerX -= sinf(fPlayerA)* fWalkSpeed * fElapsedTime;
+            fPlayerY -= cosf(fPlayerA)* fWalkSpeed * fElapsedTime;
         }
 
         for(int x = 0; x < nScreenWidth; x++)
@@ -100,6 +138,8 @@ int main()
                 int nCeiling = (float)(nScreenHeight/2.0) - nScreenHeight / ((float) fDistanceToWall);
                 int nFloor = nScreenHeight - nCeiling;
 
+                
+
                 for (int y=0; y<nScreenHeight; y++)
                 {
                     if (y<=nCeiling) // it is part of the ceiling
@@ -108,7 +148,7 @@ int main()
                     }
                     else if (y>nCeiling && y <=  nFloor) // We are wall
                     {
-                        screen[y*nScreenWidth+x] = cWall;
+                        screen[y*nScreenWidth+x] = cWallShade(fDepth,fDistanceToWall);
                     }
                     else
                     {
