@@ -54,6 +54,8 @@ char cFloorShade(int y, int nScreenHeight)
 float fRotationSpeed = 0.8f; // Speed with which the player can rotate
 float fWalkSpeed = 5.0f;
 
+float fBound = 0.005; // check of boundary to draw
+
 bool bCollission(wstring map, int nMapWidth, float fPlayerX, float fPlayerY)
 {
     if(map[(int)fPlayerY*nMapWidth+(int)fPlayerX] == '#')
@@ -90,9 +92,9 @@ int main()
     map += L"#..............#";
     map += L"#..............#";
     map += L"#..............#";
-    map += L"#..............#";
-    map += L"#..............#";
-    map += L"#..............#";
+    map += L"#........#.....#";
+    map += L"#........#.....#";
+    map += L"#......####....#";
     map += L"#..............#";
     map += L"#..............#";
     map += L"################";
@@ -187,10 +189,15 @@ int main()
                         }
                         sort(p.begin(), p.end(), [](const pair<float,float> &left, const pair<float,float> &right){return left.first < right.first;} );
 
-                        float fBound = 0.002;
+                        
                         if(acos(p.at(0).second) < fBound) {bBoundary = true;}
                         if(acos(p.at(1).second) < fBound) {bBoundary = true;}
-                        if(acos(p.at(2).second) < fBound) {bBoundary = true;}
+                        if(!(p.at(2).second<p.at(1).second & p.at(2).second<p.at(0).second)) // if dot product with 3rd corner is smaller than both the others
+                        // the third corner is in between the two fo them
+                        {
+                            if(acos(p.at(2).second) < fBound) {bBoundary = true;}
+                        }
+                        
                     }
                 }
                 int nCeiling = (float)(nScreenHeight/2.0) - nScreenHeight / ((float) fDistanceToWall);
@@ -223,6 +230,31 @@ int main()
                 }
             }
         }
+
+        // display stats
+        char buff[50];
+        snprintf(buff, sizeof(buff),  "X=%3.2f, Y=%3.2f A=%3.2F FPS=%3.2F           ", fPlayerX, fPlayerY,fPlayerA, 1.0f/fElapsedTime);
+        for (int i=0; i<50; i++)
+        {
+            screen[i] = buff[i];
+        }
+        
+
+        // display map
+        for (int nx = -1; nx < nMapWidth+1; nx++)
+        {
+            for (int ny = -1; ny < nMapHeight+1; ny++)
+            {
+                screen[(ny+2)*nScreenWidth+nx+1] = ' ';
+                if(nx>=0&nx<nMapWidth&ny>=0&ny<nMapHeight)
+                {
+                    screen[(ny+2)*nScreenWidth+nx+1] = map[ny*nMapWidth+nx];
+                }
+            }
+            
+        }
+
+        screen[((int)fPlayerY+1)*nScreenWidth+(int)fPlayerX] = 'P';
         screen[nScreenWidth*nScreenHeight -1] = '\0';
         WriteConsoleOutputCharacter(hConsole, screen, nScreenWidth*nScreenHeight, {0, 0}, &dwBytesWritten);
         
