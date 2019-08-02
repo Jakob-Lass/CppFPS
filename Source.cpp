@@ -5,9 +5,11 @@ using namespace std;
 #include <tchar.h>
 
 #include <Windows.h>
+#include <vector>
+#include <algorithm>
 
-int nScreenWidth = 120;
-int nScreenHeight = 40;
+int nScreenWidth = 240;
+int nScreenHeight = 100;
 
 float fPlayerX = 10.0f;
 float fPlayerY = 8.0f;
@@ -26,10 +28,11 @@ char cFloor = '.';
 char cWallShade(float fDepth, float fDistanceToWall)
 {
     char returnChar = ' ';
-    if      (fDistanceToWall <=fDepth/4.0){           returnChar = (char)0x2588;}//0x2588;} // Very close
-    else if (fDistanceToWall < fDepth/3.0){           returnChar = (char)0x2593;}//0x2593;} 
-    else if (fDistanceToWall < fDepth/2.0){           returnChar = (char)0x2592;}//0x2592;} 
-    else if (fDistanceToWall < fDepth/1.0){           returnChar = (char)0x2591;}//0x2591;} // Very far
+    if      (fDistanceToWall <=fDepth/4.0){           returnChar = '#';}//0x2588;} // Very close
+    else if (fDistanceToWall < fDepth/3.0){           returnChar = 'X';}//0x2593;} 
+    else if (fDistanceToWall < fDepth/2.0){           returnChar = 'x';}//0x2592;} 
+    else if (fDistanceToWall < fDepth/1.5){           returnChar = '=';}//0x2591;} // Very far
+    else if (fDistanceToWall < fDepth/1.0){           returnChar = '~';}//0x2591;} // Very far
     return returnChar;
 }
 
@@ -38,8 +41,9 @@ char cFloorShade(int y, int nScreenHeight)
     float b = 1.0f  - (((float)y - (float)nScreenHeight/2.0f ) / ((float)nScreenHeight/2.0f));
 
     char returnChar = ' ';
-    if      (b <=0.25){           returnChar = '#';}//0x2588;} // Very close
-    else if (b < 0.50){           returnChar = 'x';}//0x2593;} 
+    if      (b <=0.15){           returnChar = '#';}//0x2588;} // Very close
+    else if (b < 0.25){           returnChar = 'x';}//0x2593;} 
+    else if (b < 0.50){           returnChar = '*';}//0x2593;} 
     else if (b < 0.75){           returnChar = '.';}//0x2592;} 
     else if (b < 0.90){           returnChar = '-';}//0x2592;} 
     
@@ -47,9 +51,21 @@ char cFloorShade(int y, int nScreenHeight)
 }
 
 
-float fRotationSpeed = 0.5f; // Speed with which the player can rotate
+float fRotationSpeed = 0.8f; // Speed with which the player can rotate
 float fWalkSpeed = 5.0f;
 
+bool bCollission(wstring map, int nMapWidth, float fPlayerX, float fPlayerY)
+{
+    if(map[(int)fPlayerY*nMapWidth+(int)fPlayerX] == '#')
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+    
+}
 
 int main()
 {
@@ -110,11 +126,21 @@ int main()
         {
             fPlayerX += sinf(fPlayerA)* fWalkSpeed * fElapsedTime;
             fPlayerY += cosf(fPlayerA)* fWalkSpeed * fElapsedTime;
+            if (bCollission(map,nMapWidth,fPlayerX,fPlayerY))
+            {
+                fPlayerX -= sinf(fPlayerA)* fWalkSpeed * fElapsedTime;
+                fPlayerY -= cosf(fPlayerA)* fWalkSpeed * fElapsedTime;
+            }
         }
         if (GetAsyncKeyState((unsigned short)'S') && 0x8000)
         {
             fPlayerX -= sinf(fPlayerA)* fWalkSpeed * fElapsedTime;
             fPlayerY -= cosf(fPlayerA)* fWalkSpeed * fElapsedTime;
+            if (bCollission(map,nMapWidth,fPlayerX,fPlayerY))
+            {
+                fPlayerX += sinf(fPlayerA)* fWalkSpeed * fElapsedTime;
+                fPlayerY += cosf(fPlayerA)* fWalkSpeed * fElapsedTime;
+            }
         }
 
         for(int x = 0; x < nScreenWidth; x++)
@@ -124,6 +150,7 @@ int main()
 
             float fDistanceToWall = 0;
             bool bHitWall = false;
+            bool bBoundary = false;
 
             float fEyeX = sinf(fRayAngle); // unit vector along view
             float fEyeY = cosf(fRayAngle);
@@ -146,6 +173,24 @@ int main()
                     if (map[nTestX+nTestY*nMapWidth] == '#')
                     {
                         bHitWall = true;
+                        vector<pair<float, float>> p; // distance to coners, and dot product
+                        for(int ty = 0; ty < 2; ty++)
+                        {
+                            for(int tx = 0; tx < 2; tx++)
+                            {
+                                float vy = (float)nTestY + ty - fPlayerY;
+                                float vx = (float)nTestX + tx - fPlayerX;
+                                float d = sqrt(vy*vy+vx*vx);
+                                float dot = (fEyeX*vx/d)+(fEyeY*vy/d);
+                                p.push_back(make_pair(d,dot));
+                            }
+                        }
+                        sort(p.begin(), p.end(), [](const pair<float,float> &left, const pair<float,float> &right){return left.first < right.first;} );
+
+                        float fBound = 0.002;
+                        if(acos(p.at(0).second) < fBound) {bBoundary = true;}
+                        if(acos(p.at(1).second) < fBound) {bBoundary = true;}
+                        if(acos(p.at(2).second) < fBound) {bBoundary = true;}
                     }
                 }
                 int nCeiling = (float)(nScreenHeight/2.0) - nScreenHeight / ((float) fDistanceToWall);
@@ -162,6 +207,11 @@ int main()
                     else if (y>nCeiling && y <=  nFloor) // We are wall
                     {
                         screen[y*nScreenWidth+x] = cWallShade(fDepth,fDistanceToWall);
+
+                        if (bBoundary)
+                        {
+                            screen[y*nScreenWidth+x] = ' ';
+                        }
                     }
                     else
                     {
